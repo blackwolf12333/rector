@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit;
 
 use PhpParser\Node;
@@ -8,32 +9,28 @@ use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Stmt\Expression;
 use Rector\NodeNameResolver\NodeNameResolver;
 use Rector\PhpDocParser\NodeTraverser\SimpleCallableNodeTraverser;
-final class MethodCallRemover
+
+final readonly class MethodCallRemover
 {
-    /**
-     * @readonly
-     * @var \Rector\PhpDocParser\NodeTraverser\SimpleCallableNodeTraverser
-     */
-    private $simpleCallableNodeTraverser;
-    /**
-     * @readonly
-     * @var \Rector\NodeNameResolver\NodeNameResolver
-     */
-    private $nodeNameResolver;
-    public function __construct(SimpleCallableNodeTraverser $simpleCallableNodeTraverser, NodeNameResolver $nodeNameResolver)
-    {
-        $this->simpleCallableNodeTraverser = $simpleCallableNodeTraverser;
-        $this->nodeNameResolver = $nodeNameResolver;
+    public function __construct(
+        private SimpleCallableNodeTraverser $simpleCallableNodeTraverser,
+        private NodeNameResolver $nodeNameResolver
+    ) {
     }
-    public function removeMethodCall(Expression $expression, string $methodName) : void
+
+    public function removeMethodCall(Expression $expression, string $methodName): void
     {
-        $this->simpleCallableNodeTraverser->traverseNodesWithCallable($expression, function (Node $node) use($methodName) : ?Node {
-            if (!$node instanceof MethodCall) {
+        $this->simpleCallableNodeTraverser->traverseNodesWithCallable($expression, function (Node $node) use (
+            $methodName
+        ): ?Node {
+            if (! $node instanceof MethodCall) {
                 return null;
             }
-            if (!$this->nodeNameResolver->isName($node->name, $methodName)) {
+
+            if (! $this->nodeNameResolver->isName($node->name, $methodName)) {
                 return null;
             }
+
             return $node->var;
         });
     }

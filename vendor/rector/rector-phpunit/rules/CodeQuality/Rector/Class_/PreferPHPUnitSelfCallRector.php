@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\CodeQuality\Rector\Class_;
 
 use PhpParser\Node;
@@ -14,29 +15,23 @@ use Rector\Rector\AbstractRector;
 use Rector\Reflection\ReflectionResolver;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @see \Rector\PHPUnit\Tests\Rector\Class_\PreferPHPUnitSelfCallRector\PreferPHPUnitSelfCallRectorTest
  */
 final class PreferPHPUnitSelfCallRector extends AbstractRector
 {
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    /**
-     * @readonly
-     * @var \Rector\Reflection\ReflectionResolver
-     */
-    private $reflectionResolver;
-    public function __construct(TestsNodeAnalyzer $testsNodeAnalyzer, ReflectionResolver $reflectionResolver)
-    {
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
-        $this->reflectionResolver = $reflectionResolver;
+    public function __construct(
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer,
+        private readonly ReflectionResolver $reflectionResolver,
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Changes PHPUnit calls from $this->assert*() to self::assert*()', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition('Changes PHPUnit calls from $this->assert*() to self::assert*()', [
+            new CodeSample(
+                <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 final class SomeClass extends TestCase
@@ -47,7 +42,8 @@ final class SomeClass extends TestCase
     }
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+                ,
+                <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 final class SomeClass extends TestCase
@@ -58,57 +54,72 @@ final class SomeClass extends TestCase
     }
 }
 CODE_SAMPLE
-)]);
+            ),
+        ]);
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [Class_::class];
     }
+
     /**
      * @param Class_ $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
-        if (!$this->testsNodeAnalyzer->isInTestClass($node)) {
+        if (! $this->testsNodeAnalyzer->isInTestClass($node)) {
             return null;
         }
-        $hasChanged = \false;
-        $this->traverseNodesWithCallable($node, function (Node $node) use(&$hasChanged) : ?StaticCall {
-            if (!$node instanceof MethodCall) {
+
+        $hasChanged = false;
+        $this->traverseNodesWithCallable($node, function (Node $node) use (&$hasChanged): ?StaticCall {
+            if (! $node instanceof MethodCall) {
                 return null;
             }
+
             $methodName = $this->getName($node->name);
-            if (!\is_string($methodName)) {
+            if (! is_string($methodName)) {
                 return null;
             }
-            if (\strncmp($methodName, 'assert', \strlen('assert')) !== 0) {
+
+            if (! str_starts_with($methodName, 'assert')) {
                 return null;
             }
-            if (!$this->isName($node->var, 'this')) {
+
+            if (! $this->isName($node->var, 'this')) {
                 return null;
             }
-            if (!$this->isObjectType($node->var, new ObjectType('PHPUnit\\Framework\\TestCase'))) {
+
+            if (! $this->isObjectType($node->var, new ObjectType('PHPUnit\Framework\TestCase'))) {
                 return null;
             }
+
             $classReflection = $this->reflectionResolver->resolveClassReflection($node);
             if ($classReflection instanceof ClassReflection && $classReflection->hasNativeMethod($methodName)) {
                 $method = $classReflection->getNativeMethod($methodName);
+
                 if ($node->isFirstClassCallable()) {
                     return null;
                 }
+
                 if ($method->isStatic()) {
-                    $hasChanged = \true;
+                    $hasChanged = true;
+
                     return $this->nodeFactory->createStaticCall('self', $methodName, $node->getArgs());
                 }
             }
+
             return null;
         });
+
         if ($hasChanged) {
             return $node;
         }
+
         return null;
     }
 }

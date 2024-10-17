@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\NodeFactory;
 
 use PhpParser\Node\Arg;
@@ -13,49 +14,46 @@ use PHPStan\PhpDocParser\Ast\PhpDoc\PhpDocTagNode;
 use Rector\Exception\ShouldNotHappenException;
 use Rector\PhpParser\Node\NodeFactory;
 use Rector\PHPUnit\PhpDoc\PhpDocValueToNodeMapper;
-final class ExpectExceptionMethodCallFactory
+
+final readonly class ExpectExceptionMethodCallFactory
 {
-    /**
-     * @readonly
-     * @var \Rector\PhpParser\Node\NodeFactory
-     */
-    private $nodeFactory;
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\PhpDoc\PhpDocValueToNodeMapper
-     */
-    private $phpDocValueToNodeMapper;
-    public function __construct(NodeFactory $nodeFactory, PhpDocValueToNodeMapper $phpDocValueToNodeMapper)
-    {
-        $this->nodeFactory = $nodeFactory;
-        $this->phpDocValueToNodeMapper = $phpDocValueToNodeMapper;
+    public function __construct(
+        private NodeFactory $nodeFactory,
+        private PhpDocValueToNodeMapper $phpDocValueToNodeMapper
+    ) {
     }
+
     /**
      * @param PhpDocTagNode[] $phpDocTagNodes
      * @return Expression[]
      */
-    public function createFromTagValueNodes(array $phpDocTagNodes, string $methodName) : array
+    public function createFromTagValueNodes(array $phpDocTagNodes, string $methodName): array
     {
         $methodCallExpressions = [];
         foreach ($phpDocTagNodes as $phpDocTagNode) {
             $methodCall = $this->createMethodCall($phpDocTagNode, $methodName);
             $methodCallExpressions[] = new Expression($methodCall);
         }
+
         return $methodCallExpressions;
     }
-    private function createMethodCall(PhpDocTagNode $phpDocTagNode, string $methodName) : MethodCall
+
+    private function createMethodCall(PhpDocTagNode $phpDocTagNode, string $methodName): MethodCall
     {
-        if (!$phpDocTagNode->value instanceof GenericTagValueNode) {
+        if (! $phpDocTagNode->value instanceof GenericTagValueNode) {
             throw new ShouldNotHappenException();
         }
+
         $expr = $this->createExpectedExpr($phpDocTagNode, $phpDocTagNode->value);
         return $this->nodeFactory->createMethodCall('this', $methodName, [new Arg($expr)]);
     }
-    private function createExpectedExpr(PhpDocTagNode $phpDocTagNode, GenericTagValueNode $genericTagValueNode) : Expr
+
+    private function createExpectedExpr(PhpDocTagNode $phpDocTagNode, GenericTagValueNode $genericTagValueNode): Expr
     {
         if ($phpDocTagNode->name === '@expectedExceptionMessage') {
             return new String_($genericTagValueNode->value);
         }
+
         return $this->phpDocValueToNodeMapper->mapGenericTagValueNode($genericTagValueNode);
     }
 }

@@ -1,9 +1,10 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\PHPUnit70\Rector\Class_;
 
-use RectorPrefix202410\Nette\Utils\Strings;
+use Nette\Utils\Strings;
 use PhpParser\Node;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Stmt\Class_;
@@ -13,6 +14,7 @@ use Rector\PHPUnit\PhpDoc\DataProviderMethodRenamer;
 use Rector\Rector\AbstractRector;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @changelog https://stackoverflow.com/a/46693675/1348344
  *
@@ -20,30 +22,20 @@ use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
  */
 final class RemoveDataProviderTestPrefixRector extends AbstractRector
 {
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeFinder\DataProviderClassMethodFinder
-     */
-    private $dataProviderClassMethodFinder;
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\PhpDoc\DataProviderMethodRenamer
-     */
-    private $dataProviderMethodRenamer;
-    public function __construct(TestsNodeAnalyzer $testsNodeAnalyzer, DataProviderClassMethodFinder $dataProviderClassMethodFinder, DataProviderMethodRenamer $dataProviderMethodRenamer)
-    {
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
-        $this->dataProviderClassMethodFinder = $dataProviderClassMethodFinder;
-        $this->dataProviderMethodRenamer = $dataProviderMethodRenamer;
+    public function __construct(
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer,
+        private readonly DataProviderClassMethodFinder $dataProviderClassMethodFinder,
+        private readonly DataProviderMethodRenamer $dataProviderMethodRenamer
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Data provider methods cannot start with "test" prefix', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition(
+            'Data provider methods cannot start with "test" prefix',
+            [
+                new CodeSample(
+                    <<<'CODE_SAMPLE'
 class SomeClass extends PHPUnit\Framework\TestCase
 {
     /**
@@ -60,7 +52,8 @@ class SomeClass extends PHPUnit\Framework\TestCase
     }
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+                    ,
+                    <<<'CODE_SAMPLE'
 class SomeClass extends PHPUnit\Framework\TestCase
 {
     /**
@@ -77,39 +70,51 @@ class SomeClass extends PHPUnit\Framework\TestCase
     }
 }
 CODE_SAMPLE
-)]);
+                ),
+            ]
+        );
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [Class_::class];
     }
+
     /**
      * @param Class_ $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
-        if (!$this->testsNodeAnalyzer->isInTestClass($node)) {
+        if (! $this->testsNodeAnalyzer->isInTestClass($node)) {
             return null;
         }
-        $hasChanged = \false;
+
+        $hasChanged = false;
+
         $dataProviderClassMethods = $this->dataProviderClassMethodFinder->find($node);
         foreach ($dataProviderClassMethods as $dataProviderClassMethod) {
             $dataProviderClassMethodName = $dataProviderClassMethod->name->toString();
-            if (\strncmp($dataProviderClassMethodName, 'test', \strlen('test')) !== 0) {
+
+            if (! str_starts_with($dataProviderClassMethodName, 'test')) {
                 continue;
             }
+
             $shortMethodName = Strings::substring($dataProviderClassMethodName, 4);
-            $shortMethodName = \lcfirst($shortMethodName);
+            $shortMethodName = lcfirst($shortMethodName);
+
             $dataProviderClassMethod->name = new Identifier($shortMethodName);
-            $hasChanged = \true;
+            $hasChanged = true;
         }
+
         $this->dataProviderMethodRenamer->removeTestPrefix($node);
+
         if ($hasChanged) {
             return $node;
         }
+
         return null;
     }
 }

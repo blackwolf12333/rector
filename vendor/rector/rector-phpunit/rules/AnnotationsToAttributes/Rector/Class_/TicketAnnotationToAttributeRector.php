@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\AnnotationsToAttributes\Rector\Class_;
 
 use PhpParser\Node;
@@ -22,6 +23,7 @@ use Rector\ValueObject\PhpVersionFeature;
 use Rector\VersionBonding\Contract\MinPhpVersionInterface;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @changelog https://docs.phpunit.de/en/10.0/annotations.html#ticket
  *
@@ -30,33 +32,22 @@ use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
 final class TicketAnnotationToAttributeRector extends AbstractRector implements MinPhpVersionInterface
 {
     /**
-     * @readonly
-     * @var \Rector\BetterPhpDocParser\PhpDocManipulator\PhpDocTagRemover
-     */
-    private $phpDocTagRemover;
-    /**
-     * @readonly
-     * @var \Rector\Comments\NodeDocBlock\DocBlockUpdater
-     */
-    private $docBlockUpdater;
-    /**
-     * @readonly
-     * @var \Rector\BetterPhpDocParser\PhpDocInfo\PhpDocInfoFactory
-     */
-    private $phpDocInfoFactory;
-    /**
      * @var string
      */
-    private const TICKET_CLASS = 'PHPUnit\\Framework\\Attributes\\Ticket';
-    public function __construct(PhpDocTagRemover $phpDocTagRemover, DocBlockUpdater $docBlockUpdater, PhpDocInfoFactory $phpDocInfoFactory)
-    {
-        $this->phpDocTagRemover = $phpDocTagRemover;
-        $this->docBlockUpdater = $docBlockUpdater;
-        $this->phpDocInfoFactory = $phpDocInfoFactory;
+    private const TICKET_CLASS = 'PHPUnit\Framework\Attributes\Ticket';
+
+    public function __construct(
+        private readonly PhpDocTagRemover $phpDocTagRemover,
+        private readonly DocBlockUpdater $docBlockUpdater,
+        private readonly PhpDocInfoFactory $phpDocInfoFactory,
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Change annotations with value to attribute', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition('Change annotations with value to attribute', [
+            new CodeSample(
+                <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -66,7 +57,9 @@ final class SomeTest extends TestCase
 {
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+
+                ,
+                <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Ticket;
 
@@ -75,56 +68,70 @@ final class SomeTest extends TestCase
 {
 }
 CODE_SAMPLE
-)]);
+            ),
+        ]);
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [Class_::class, ClassMethod::class];
     }
-    public function provideMinPhpVersion() : int
+
+    public function provideMinPhpVersion(): int
     {
         return PhpVersionFeature::ATTRIBUTES;
     }
+
     /**
      * @param Class_|ClassMethod $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
         $phpDocInfo = $this->phpDocInfoFactory->createFromNode($node);
-        if (!$phpDocInfo instanceof PhpDocInfo) {
+        if (! $phpDocInfo instanceof PhpDocInfo) {
             return null;
         }
+
         /** @var PhpDocTagNode[] $ticketTagValueNodes */
         $ticketTagValueNodes = $phpDocInfo->getTagsByName('ticket');
         if ($ticketTagValueNodes === []) {
             return null;
         }
-        $hasChanged = \false;
+
+        $hasChanged = false;
         foreach ($ticketTagValueNodes as $ticketTagValueNode) {
-            if (!$ticketTagValueNode->value instanceof GenericTagValueNode) {
+            if (! $ticketTagValueNode->value instanceof GenericTagValueNode) {
                 continue;
             }
+
             $stringValue = $ticketTagValueNode->value->value;
             $attribute = $this->createTicketAttribute($stringValue);
+
             $node->attrGroups[] = new AttributeGroup([$attribute]);
+
             // cleanup
             $this->phpDocTagRemover->removeTagValueFromNode($phpDocInfo, $ticketTagValueNode);
-            $hasChanged = \true;
+            $hasChanged = true;
         }
+
         if ($hasChanged) {
             $this->docBlockUpdater->updateRefactoredNodeWithPhpDocInfo($node);
             return $node;
         }
+
         return null;
     }
-    private function createTicketAttribute(string $stringValue) : Attribute
+
+    private function createTicketAttribute(string $stringValue): Attribute
     {
         $fullyQualified = new FullyQualified(self::TICKET_CLASS);
         $ticketString = new String_($stringValue);
+
         $args = [new Arg($ticketString)];
+
         return new Attribute($fullyQualified, $args);
     }
 }

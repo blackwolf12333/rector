@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\CodeQuality\Rector\Class_;
 
 use PhpParser\Node;
@@ -24,6 +25,7 @@ use Rector\Reflection\ReflectionResolver;
 use Rector\ValueObject\MethodName;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @changelog https://github.com/sebastianbergmann/phpunit/issues/3975#issuecomment-562584609
  *
@@ -31,42 +33,22 @@ use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
  */
 final class ConstructClassMethodToSetUpTestCaseRector extends AbstractRector
 {
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    /**
-     * @readonly
-     * @var \Rector\NodeAnalyzer\ClassAnalyzer
-     */
-    private $classAnalyzer;
-    /**
-     * @readonly
-     * @var \Rector\Privatization\NodeManipulator\VisibilityManipulator
-     */
-    private $visibilityManipulator;
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\SetUpMethodDecorator
-     */
-    private $setUpMethodDecorator;
-    /**
-     * @readonly
-     * @var \Rector\Reflection\ReflectionResolver
-     */
-    private $reflectionResolver;
-    public function __construct(TestsNodeAnalyzer $testsNodeAnalyzer, ClassAnalyzer $classAnalyzer, VisibilityManipulator $visibilityManipulator, SetUpMethodDecorator $setUpMethodDecorator, ReflectionResolver $reflectionResolver)
-    {
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
-        $this->classAnalyzer = $classAnalyzer;
-        $this->visibilityManipulator = $visibilityManipulator;
-        $this->setUpMethodDecorator = $setUpMethodDecorator;
-        $this->reflectionResolver = $reflectionResolver;
+    public function __construct(
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer,
+        private readonly ClassAnalyzer $classAnalyzer,
+        private readonly VisibilityManipulator $visibilityManipulator,
+        private readonly SetUpMethodDecorator $setUpMethodDecorator,
+        private readonly ReflectionResolver $reflectionResolver
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Change __construct() method in tests of `PHPUnit\\Framework\\TestCase` to setUp(), to prevent dangerous override', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition(
+            'Change __construct() method in tests of `PHPUnit\Framework\TestCase` to setUp(), to prevent dangerous override',
+            [
+                new CodeSample(
+                    <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 final class SomeTest extends TestCase
@@ -80,7 +62,9 @@ final class SomeTest extends TestCase
     }
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+
+                    ,
+                    <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 final class SomeTest extends TestCase
@@ -95,36 +79,45 @@ final class SomeTest extends TestCase
     }
 }
 CODE_SAMPLE
-)]);
+                ),
+            ]
+        );
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [Class_::class];
     }
+
     /**
      * @param Class_ $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
-        if (!$this->testsNodeAnalyzer->isInTestClass($node)) {
+        if (! $this->testsNodeAnalyzer->isInTestClass($node)) {
             return null;
         }
+
         $constructClassMethod = $node->getMethod(MethodName::CONSTRUCT);
-        if (!$constructClassMethod instanceof ClassMethod) {
+        if (! $constructClassMethod instanceof ClassMethod) {
             return null;
         }
+
         if ($this->classAnalyzer->isAnonymousClass($node)) {
             return null;
         }
+
         if ($this->shouldSkip($node, $constructClassMethod)) {
             return null;
         }
+
         $addedStmts = $this->resolveStmtsToAddToSetUp($constructClassMethod);
         $setUpClassMethod = $node->getMethod(MethodName::SET_UP);
-        if (!$setUpClassMethod instanceof ClassMethod) {
+
+        if (! $setUpClassMethod instanceof ClassMethod) {
             // no setUp() method yet, rename it to setUp :)
             $constructClassMethod->name = new Identifier(MethodName::SET_UP);
             $constructClassMethod->params = [];
@@ -134,72 +127,95 @@ CODE_SAMPLE
         } else {
             $stmtKey = $constructClassMethod->getAttribute(AttributeKey::STMT_KEY);
             unset($node->stmts[$stmtKey]);
-            $setUpClassMethod->stmts = \array_merge((array) $setUpClassMethod->stmts, $addedStmts);
+
+            $setUpClassMethod->stmts = [...(array) $setUpClassMethod->stmts, ...$addedStmts];
         }
+
         return $node;
     }
-    private function shouldSkip(Class_ $class, ClassMethod $classMethod) : bool
+
+    private function shouldSkip(Class_ $class, ClassMethod $classMethod): bool
     {
         $classReflection = $this->reflectionResolver->resolveClassReflection($class);
-        if (!$classReflection instanceof ClassReflection) {
-            return \true;
+        if (! $classReflection instanceof ClassReflection) {
+            return true;
         }
-        $currentParent = \current($classReflection->getParents());
-        if (!$currentParent instanceof ClassReflection) {
-            return \true;
+
+        $currentParent = current($classReflection->getParents());
+        if (! $currentParent instanceof ClassReflection) {
+            return true;
         }
-        if ($currentParent->getName() !== 'PHPUnit\\Framework\\TestCase') {
-            return \true;
+
+        if ($currentParent->getName() !== 'PHPUnit\Framework\TestCase') {
+            return true;
         }
+
         $paramNames = [];
         foreach ($classMethod->params as $param) {
             $paramNames[] = $this->getName($param);
         }
-        $isFoundParamUsed = \false;
-        $this->traverseNodesWithCallable((array) $classMethod->stmts, function (Node $subNode) use($paramNames, &$isFoundParamUsed) : ?int {
-            if ($subNode instanceof StaticCall && $this->isName($subNode->name, MethodName::CONSTRUCT)) {
-                return NodeTraverser::DONT_TRAVERSE_CHILDREN;
+
+        $isFoundParamUsed = false;
+        $this->traverseNodesWithCallable(
+            (array) $classMethod->stmts,
+            function (Node $subNode) use ($paramNames, &$isFoundParamUsed): ?int {
+                if ($subNode instanceof StaticCall && $this->isName($subNode->name, MethodName::CONSTRUCT)) {
+                    return NodeTraverser::DONT_TRAVERSE_CHILDREN;
+                }
+
+                if ($subNode instanceof Variable && $this->isNames($subNode, $paramNames)) {
+                    $isFoundParamUsed = true;
+                    return NodeTraverser::STOP_TRAVERSAL;
+                }
+
+                return null;
             }
-            if ($subNode instanceof Variable && $this->isNames($subNode, $paramNames)) {
-                $isFoundParamUsed = \true;
-                return NodeTraverser::STOP_TRAVERSAL;
-            }
-            return null;
-        });
+        );
+
         return $isFoundParamUsed;
     }
+
     /**
      * @return Stmt[]
      */
-    private function resolveStmtsToAddToSetUp(ClassMethod $constructClassMethod) : array
+    private function resolveStmtsToAddToSetUp(ClassMethod $constructClassMethod): array
     {
         $constructorStmts = (array) $constructClassMethod->stmts;
+
         // remove parent call
         foreach ($constructorStmts as $key => $constructorStmt) {
             if ($constructorStmt instanceof Expression) {
                 $constructorStmt = clone $constructorStmt->expr;
             }
-            if (!$this->isParentCallNamed($constructorStmt, MethodName::CONSTRUCT)) {
+
+            if (! $this->isParentCallNamed($constructorStmt, MethodName::CONSTRUCT)) {
                 continue;
             }
+
             unset($constructorStmts[$key]);
         }
+
         return $constructorStmts;
     }
-    private function isParentCallNamed(Node $node, string $desiredMethodName) : bool
+
+    private function isParentCallNamed(Node $node, string $desiredMethodName): bool
     {
-        if (!$node instanceof StaticCall) {
-            return \false;
+        if (! $node instanceof StaticCall) {
+            return false;
         }
+
         if ($node->class instanceof Expr) {
-            return \false;
+            return false;
         }
-        if (!$this->nodeNameResolver->isName($node->class, 'parent')) {
-            return \false;
+
+        if (! $this->nodeNameResolver->isName($node->class, 'parent')) {
+            return false;
         }
+
         if ($node->name instanceof Expr) {
-            return \false;
+            return false;
         }
+
         return $this->nodeNameResolver->isName($node->name, $desiredMethodName);
     }
 }

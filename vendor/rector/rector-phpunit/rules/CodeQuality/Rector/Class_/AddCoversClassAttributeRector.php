@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\CodeQuality\Rector\Class_;
 
 use PhpParser\Node;
@@ -22,136 +23,155 @@ use function in_array;
 use function preg_replace;
 use function strtolower;
 use function trim;
+
 final class AddCoversClassAttributeRector extends AbstractRector
 {
-    /**
-     * @readonly
-     * @var \PHPStan\Reflection\ReflectionProvider
-     */
-    private $reflectionProvider;
-    /**
-     * @readonly
-     * @var \Rector\PhpAttribute\NodeFactory\PhpAttributeGroupFactory
-     */
-    private $phpAttributeGroupFactory;
-    /**
-     * @readonly
-     * @var \Rector\Php80\NodeAnalyzer\PhpAttributeAnalyzer
-     */
-    private $phpAttributeAnalyzer;
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    public function __construct(ReflectionProvider $reflectionProvider, PhpAttributeGroupFactory $phpAttributeGroupFactory, PhpAttributeAnalyzer $phpAttributeAnalyzer, TestsNodeAnalyzer $testsNodeAnalyzer)
-    {
-        $this->reflectionProvider = $reflectionProvider;
-        $this->phpAttributeGroupFactory = $phpAttributeGroupFactory;
-        $this->phpAttributeAnalyzer = $phpAttributeAnalyzer;
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
+    public function __construct(
+        private readonly ReflectionProvider $reflectionProvider,
+        private readonly PhpAttributeGroupFactory $phpAttributeGroupFactory,
+        private readonly PhpAttributeAnalyzer $phpAttributeAnalyzer,
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer,
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Adds `#[CoversClass(...)]` attribute to test files guessing source class name.', [new CodeSample(<<<'CODE_SAMPLE'
-class SomeService
-{
-}
+        return new RuleDefinition('Adds `#[CoversClass(...)]` attribute to test files guessing source class name.', [
+            new CodeSample(
+                <<<'CODE_SAMPLE'
+                    class SomeService
+                    {
+                    }
 
-use PHPUnit\Framework\TestCase;
+                    use PHPUnit\Framework\TestCase;
 
-class SomeServiceTest extends TestCase
-{
-}
-CODE_SAMPLE
-, <<<'CODE_SAMPLE'
-class SomeService
-{
-}
+                    class SomeServiceTest extends TestCase
+                    {
+                    }
+                    CODE_SAMPLE
+                ,
+                <<<'CODE_SAMPLE'
+                    class SomeService
+                    {
+                    }
 
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+                    use PHPUnit\Framework\TestCase;
+                    use PHPUnit\Framework\Attributes\CoversClass;
 
-#[CoversClass(SomeService::class)]
-class SomeServiceTest extends TestCase
-{
-}
-CODE_SAMPLE
-)]);
+                    #[CoversClass(SomeService::class)]
+                    class SomeServiceTest extends TestCase
+                    {
+                    }
+                    CODE_SAMPLE
+                ,
+            ),
+        ]);
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [Class_::class];
     }
+
     /**
      * @param Class_ $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
         $className = $this->getName($node);
+
         if ($className === null) {
             return null;
         }
-        if (!$this->testsNodeAnalyzer->isInTestClass($node)) {
+
+        if (! $this->testsNodeAnalyzer->isInTestClass($node)) {
             return null;
         }
-        if ($this->phpAttributeAnalyzer->hasPhpAttributes($node, ['PHPUnit\\Framework\\Attributes\\CoversNothing', 'PHPUnit\\Framework\\Attributes\\CoversClass', 'PHPUnit\\Framework\\Attributes\\CoversFunction'])) {
+
+        if ($this->phpAttributeAnalyzer->hasPhpAttributes($node, [
+            'PHPUnit\\Framework\\Attributes\\CoversNothing',
+            'PHPUnit\\Framework\\Attributes\\CoversClass',
+            'PHPUnit\\Framework\\Attributes\\CoversFunction',
+        ])) {
             return null;
         }
+
         $possibleTestClassNames = $this->resolveSourceClassNames($className);
         $matchingTestClassName = $this->matchExistingClassName($possibleTestClassNames);
-        if (!\is_string($matchingTestClassName)) {
+
+        if (! is_string($matchingTestClassName)) {
             return null;
         }
+
         $coversAttributeGroup = $this->createAttributeGroup('\\' . $matchingTestClassName);
+
         $node->attrGroups = array_merge($node->attrGroups, [$coversAttributeGroup]);
+
         return $node;
     }
+
     /**
      * @return string[]
      */
-    private function resolveSourceClassNames(string $className) : array
+    private function resolveSourceClassNames(string $className): array
     {
         $classNameParts = explode('\\', $className);
         $partCount = count($classNameParts);
         $classNameParts[$partCount - 1] = preg_replace(['#TestCase$#', '#Test$#'], '', $classNameParts[$partCount - 1]);
+
         $possibleTestClassNames = [implode('\\', $classNameParts)];
-        $partsWithoutTests = array_filter($classNameParts, static function (?string $part) : bool {
-            return $part === null ? \false : !in_array(strtolower($part), ['test', 'tests'], \true);
-        });
+
+        $partsWithoutTests = array_filter(
+            $classNameParts,
+            static fn (string|null $part): bool => $part === null ? false : ! in_array(
+                strtolower($part),
+                ['test', 'tests'],
+                true
+            ),
+        );
+
         $possibleTestClassNames[] = implode('\\', $partsWithoutTests);
+
         return $possibleTestClassNames;
     }
+
     /**
      * @param string[] $classNames
      */
-    private function matchExistingClassName(array $classNames) : ?string
+    private function matchExistingClassName(array $classNames): ?string
     {
         foreach ($classNames as $className) {
-            if (!$this->reflectionProvider->hasClass($className)) {
+            if (! $this->reflectionProvider->hasClass($className)) {
                 continue;
             }
+
             $classReflection = $this->reflectionProvider->getClass($className);
             if ($classReflection->isInterface()) {
                 continue;
             }
+
             if ($classReflection->isTrait()) {
                 continue;
             }
+
             if ($classReflection->isAbstract()) {
                 continue;
             }
+
             return $className;
         }
+
         return null;
     }
-    private function createAttributeGroup(string $annotationValue) : AttributeGroup
+
+    private function createAttributeGroup(string $annotationValue): AttributeGroup
     {
         $attributeClass = 'PHPUnit\\Framework\\Attributes\\CoversClass';
         $attributeValue = trim($annotationValue) . '::class';
+
         return $this->phpAttributeGroupFactory->createFromClassWithItems($attributeClass, [$attributeValue]);
     }
 }

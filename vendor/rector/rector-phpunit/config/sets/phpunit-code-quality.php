@@ -1,7 +1,6 @@
 <?php
 
-declare (strict_types=1);
-namespace RectorPrefix202410;
+declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
 use Rector\PHPUnit\CodeQuality\Rector\Class_\ConstructClassMethodToSetUpTestCaseRector;
@@ -33,7 +32,8 @@ use Rector\PHPUnit\CodeQuality\Rector\MethodCall\RemoveExpectAnyFromMockRector;
 use Rector\PHPUnit\CodeQuality\Rector\MethodCall\SingleWithConsecutiveToWithRector;
 use Rector\PHPUnit\CodeQuality\Rector\MethodCall\UseSpecificWillMethodRector;
 use Rector\PHPUnit\CodeQuality\Rector\MethodCall\UseSpecificWithMethodRector;
-return static function (RectorConfig $rectorConfig) : void {
+
+return static function (RectorConfig $rectorConfig): void {
     $rectorConfig->rules([
         ConstructClassMethodToSetUpTestCaseRector::class,
         AssertSameTrueFalseToAssertTrueFalseRector::class,
@@ -45,10 +45,12 @@ return static function (RectorConfig $rectorConfig) : void {
         TestWithToDataProviderRector::class,
         AssertEqualsOrAssertSameFloatParameterToSpecificMethodsTypeRector::class,
         DataProviderArrayItemsNewLinedRector::class,
+
         // narrow with consecutive
         NarrowIdenticalWithConsecutiveRector::class,
         NarrowSingleWillReturnCallbackRector::class,
         SingleWithConsecutiveToWithRector::class,
+
         // specific asserts
         AssertCompareOnCountableWithMethodToAssertCountRector::class,
         AssertCompareToSpecificMethodRector::class,
@@ -65,6 +67,7 @@ return static function (RectorConfig $rectorConfig) : void {
         UseSpecificWillMethodRector::class,
         UseSpecificWithMethodRector::class,
         AssertEmptyNullableObjectToAssertInstanceofRector::class,
+
         /**
          * Improve direct testing of your code, without mock creep. Make it simple, clear and easy to maintain:
          *

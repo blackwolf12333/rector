@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\CodeQuality\Rector\ClassMethod;
 
 use PhpParser\Node;
@@ -24,23 +25,22 @@ use Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer;
 use Rector\Rector\AbstractRector;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @see \Rector\PHPUnit\Tests\Rector\ClassMethod\CreateMockToAnonymousClassRector\CreateMockToAnonymousClassRectorTest
  */
 final class CreateMockToAnonymousClassRector extends AbstractRector
 {
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    public function __construct(TestsNodeAnalyzer $testsNodeAnalyzer)
-    {
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
+    public function __construct(
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Change $this->createMock() with methods to direct anonymous class', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition('Change $this->createMock() with methods to direct anonymous class', [
+            new CodeSample(
+                <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 final class SomeTest extends TestCase
@@ -54,7 +54,9 @@ final class SomeTest extends TestCase
     }
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+
+                ,
+                <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 final class SomeTest extends TestCase
@@ -70,133 +72,182 @@ final class SomeTest extends TestCase
     }
 }
 CODE_SAMPLE
-)]);
+            ),
+        ]);
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [ClassMethod::class];
     }
+
     /**
      * @param ClassMethod $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
-        if (!$this->testsNodeAnalyzer->isInTestClass($node)) {
+        if (! $this->testsNodeAnalyzer->isInTestClass($node)) {
             return null;
         }
+
         if ($node->stmts === []) {
             return null;
         }
+
         $anonymousClassPosition = null;
         $anonymousClass = null;
         $mockExpr = null;
-        $hasDynamicReturnExprs = \false;
+
+        $hasDynamicReturnExprs = false;
+
         $anonymousClassMethods = [];
         $createMockMethodCallAssign = null;
+
         foreach ((array) $node->stmts as $key => $classMethodStmt) {
             if ($mockExpr instanceof Expr) {
                 // possible call on mock expr
                 if ($classMethodStmt instanceof Expression && $classMethodStmt->expr instanceof MethodCall) {
                     $methodCall = $classMethodStmt->expr;
+
                     $rootMethodCall = $methodCall;
                     while ($rootMethodCall->var instanceof MethodCall) {
                         $rootMethodCall = $rootMethodCall->var;
                     }
-                    if (!$this->nodeComparator->areNodesEqual($rootMethodCall->var, $mockExpr)) {
+
+                    if (! $this->nodeComparator->areNodesEqual($rootMethodCall->var, $mockExpr)) {
                         continue;
                     }
-                    if (!$this->isName($rootMethodCall->name, 'method')) {
+
+                    if (! $this->isName($rootMethodCall->name, 'method')) {
                         continue;
                     }
+
                     if ($methodCall->isFirstClassCallable()) {
                         continue;
                     }
+
                     // has dynamic return?
-                    if ($hasDynamicReturnExprs === \false) {
-                        $returnedExpr = $methodCall->getArgs()[0]->value;
-                        $hasDynamicReturnExprs = !$returnedExpr instanceof Scalar && !$returnedExpr instanceof Array_;
+                    if ($hasDynamicReturnExprs === false) {
+                        $returnedExpr = $methodCall->getArgs()[0]
+->value;
+                        $hasDynamicReturnExprs = ! $returnedExpr instanceof Scalar && ! $returnedExpr instanceof Array_;
                     }
+
                     $anonymousClassMethods[$key] = $this->createMockedClassMethod($rootMethodCall, $methodCall);
                 }
+
                 continue;
             }
+
             $createMockMethodCallAssign = $this->matchCreateMockAssign($classMethodStmt);
-            if (!$createMockMethodCallAssign instanceof Assign) {
+            if (! $createMockMethodCallAssign instanceof Assign) {
                 continue;
             }
+
             // change to anonymous class
             /** @var MethodCall $methodCall */
             $methodCall = $createMockMethodCallAssign->expr;
+
             if ($methodCall->isFirstClassCallable()) {
                 continue;
             }
+
             $firstArg = $methodCall->getArgs()[0];
+
             $mockExpr = $createMockMethodCallAssign->var;
+
             $anonymousClass = $this->createAnonymousClass($firstArg);
             $anonymousClassPosition = $key;
         }
+
         if ($anonymousClassPosition === null) {
             return null;
         }
-        if (!$anonymousClass instanceof Class_) {
+
+        if (! $anonymousClass instanceof Class_) {
             return null;
         }
+
         if ($hasDynamicReturnExprs) {
             return null;
         }
+
         foreach ($anonymousClassMethods as $keyToRemove => $anonymousClassMethod) {
             unset($node->stmts[$keyToRemove]);
             $anonymousClass->stmts[] = $anonymousClassMethod;
         }
-        if (!$createMockMethodCallAssign instanceof Assign) {
+
+        if (! $createMockMethodCallAssign instanceof Assign) {
             throw new ShouldNotHappenException();
         }
+
         $new = new New_($anonymousClass);
         $newAnonymousClassAssign = new Assign($createMockMethodCallAssign->var, $new);
         $node->stmts[$anonymousClassPosition] = new Expression($newAnonymousClassAssign);
+
         return $node;
     }
-    private function createAnonymousClass(Arg $firstArg) : Class_
+
+    private function createAnonymousClass(Arg $firstArg): Class_
     {
         if ($firstArg->value instanceof ClassConstFetch) {
             $className = $firstArg->value->class;
         } else {
             throw new NotImplementedYetException();
         }
+
         // must respect PHPStan anonymous internal naming \Rector\NodeTypeResolver\PHPStan\Scope\PHPStanNodeScopeResolver::ANONYMOUS_CLASS_START_REGEX
-        return new Class_('AnonymousClass1234', ['extends' => $className], ['startLine' => $firstArg->getStartLine(), 'endLine' => $firstArg->getEndLine()]);
+        return new Class_('AnonymousClass1234', [
+            'extends' => $className,
+        ], [
+            'startLine' => $firstArg->getStartLine(),
+            'endLine' => $firstArg->getEndLine(),
+        ]);
     }
-    private function matchCreateMockAssign(Stmt $stmt) : ?Assign
+
+    private function matchCreateMockAssign(Stmt $stmt): ?Assign
     {
-        if (!$stmt instanceof Expression) {
+        if (! $stmt instanceof Expression) {
             return null;
         }
-        if (!$stmt->expr instanceof Assign) {
+
+        if (! $stmt->expr instanceof Assign) {
             return null;
         }
+
         // assign method call to variable
         $assign = $stmt->expr;
-        if (!$assign->expr instanceof MethodCall) {
+        if (! $assign->expr instanceof MethodCall) {
             return null;
         }
-        if (!$this->isName($assign->expr->name, 'createMock')) {
+
+        if (! $this->isName($assign->expr->name, 'createMock')) {
             return null;
         }
+
         return $assign;
     }
-    private function createMockedClassMethod(MethodCall $rootMethodCall, MethodCall $methodCall) : ClassMethod
+
+    private function createMockedClassMethod(MethodCall $rootMethodCall, MethodCall $methodCall): ClassMethod
     {
         $rootMethodCallFirstArg = $rootMethodCall->getArgs()[0];
+
         $methodNameExpr = $rootMethodCallFirstArg->value;
         if ($methodNameExpr instanceof String_) {
             $methodName = $methodNameExpr->value;
         } else {
             throw new NotImplementedYetException();
         }
-        $returnedExpr = $methodCall->getArgs()[0]->value;
-        return new ClassMethod($methodName, ['flags' => Class_::MODIFIER_PUBLIC, 'stmts' => [new Return_($returnedExpr)]]);
+
+        $returnedExpr = $methodCall->getArgs()[0]
+            ->value;
+
+        return new ClassMethod($methodName, [
+            'flags' => Class_::MODIFIER_PUBLIC,
+            'stmts' => [new Return_($returnedExpr)],
+        ]);
     }
 }

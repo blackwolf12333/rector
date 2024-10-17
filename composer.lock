@@ -1,0 +1,174 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "e007e8d7fbf8ca30ebbd0f469baf7538",
+    "packages": [
+        {
+            "name": "phpstan/phpstan",
+            "version": "1.12.6",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/phpstan/phpstan.git",
+                "reference": "dc4d2f145a88ea7141ae698effd64d9df46527ae"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/dc4d2f145a88ea7141ae698effd64d9df46527ae",
+                "reference": "dc4d2f145a88ea7141ae698effd64d9df46527ae",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.2|^8.0"
+            },
+            "conflict": {
+                "phpstan/phpstan-shim": "*"
+            },
+            "bin": [
+                "phpstan",
+                "phpstan.phar"
+            ],
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "bootstrap.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "PHPStan - PHP Static Analysis Tool",
+            "keywords": [
+                "dev",
+                "static analysis"
+            ],
+            "support": {
+                "docs": "https://phpstan.org/user-guide/getting-started",
+                "forum": "https://github.com/phpstan/phpstan/discussions",
+                "issues": "https://github.com/phpstan/phpstan/issues",
+                "security": "https://github.com/phpstan/phpstan/security/policy",
+                "source": "https://github.com/phpstan/phpstan-src"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/ondrejmirtes",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/phpstan",
+                    "type": "github"
+                }
+            ],
+            "time": "2024-10-06T15:03:59+00:00"
+        },
+        {
+            "name": "rector/rector-phpunit",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "git@github.com:blackwolf12333/rector-phpunit.git",
+                "reference": "b6280393c5ee947b1678bf3a2cbf6afb7116015f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/blackwolf12333/rector-phpunit/zipball/b6280393c5ee947b1678bf3a2cbf6afb7116015f",
+                "reference": "b6280393c5ee947b1678bf3a2cbf6afb7116015f",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.2"
+            },
+            "conflict": {
+                "rector/rector": "<0.11"
+            },
+            "require-dev": {
+                "phpstan/extension-installer": "^1.4",
+                "phpstan/phpstan": "^1.11",
+                "phpstan/phpstan-webmozart-assert": "^1.2",
+                "phpunit/phpunit": "^10.5",
+                "rector/rector-src": "dev-main",
+                "rector/swiss-knife": "^0.2.35",
+                "rector/type-perfect": "^0.2",
+                "symplify/easy-coding-standard": "^12.3",
+                "symplify/phpstan-extensions": "^11.2",
+                "symplify/phpstan-rules": "^13.0",
+                "symplify/vendor-patches": "^11.2",
+                "tomasvotruba/class-leak": "^0.2",
+                "tracy/tracy": "^2.10"
+            },
+            "default-branch": true,
+            "type": "rector-extension",
+            "extra": {
+                "enable-patching": true,
+                "branch-alias": {
+                    "dev-main": "0.11-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Rector\\PHPUnit\\": [
+                        "src",
+                        "rules"
+                    ]
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Rector\\PHPUnit\\Tests\\": [
+                        "tests",
+                        "rules-tests"
+                    ]
+                },
+                "classmap": [
+                    "stubs"
+                ]
+            },
+            "scripts": {
+                "complete-check": [
+                    "@check-cs",
+                    "@class-leak",
+                    "@phpstan",
+                    "@rector",
+                    "@docs",
+                    "phpunit"
+                ],
+                "phpstan": [
+                    "vendor/bin/phpstan analyse --ansi --error-format symplify"
+                ],
+                "check-cs": [
+                    "vendor/bin/ecs check --ansi"
+                ],
+                "class-leak": [
+                    "vendor/bin/class-leak check config src rules --skip-suffix \"Rector\""
+                ],
+                "fix-cs": [
+                    "vendor/bin/ecs check --fix --ansi"
+                ],
+                "rector": [
+                    "vendor/bin/rector process --ansi"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Rector upgrades rules for PHPUnit",
+            "time": "2024-10-17T15:27:34+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "dev",
+    "stability-flags": {
+        "rector/rector-phpunit": 20
+    },
+    "prefer-stable": true,
+    "prefer-lowest": false,
+    "platform": {
+        "php": "^7.2|^8.0"
+    },
+    "platform-dev": {},
+    "plugin-api-version": "2.6.0"
+}

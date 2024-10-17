@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\PHPUnit100\Rector\MethodCall;
 
 use PhpParser\Node;
@@ -20,6 +21,7 @@ use Rector\Rector\AbstractRector;
 use Rector\Reflection\ClassReflectionAnalyzer;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @see \Rector\PHPUnit\Tests\PHPUnit100\Rector\MethodCall\AssertIssetToAssertObjectHasPropertyRector\AssertIssetToAssertObjectHasPropertyRectorTest
  *
@@ -27,30 +29,18 @@ use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
  */
 final class AssertIssetToAssertObjectHasPropertyRector extends AbstractRector
 {
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\IdentifierManipulator
-     */
-    private $identifierManipulator;
-    /**
-     * @readonly
-     * @var \Rector\Reflection\ClassReflectionAnalyzer
-     */
-    private $classReflectionAnalyzer;
-    public function __construct(TestsNodeAnalyzer $testsNodeAnalyzer, IdentifierManipulator $identifierManipulator, ClassReflectionAnalyzer $classReflectionAnalyzer)
-    {
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
-        $this->identifierManipulator = $identifierManipulator;
-        $this->classReflectionAnalyzer = $classReflectionAnalyzer;
+    public function __construct(
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer,
+        private readonly IdentifierManipulator $identifierManipulator,
+        private readonly ClassReflectionAnalyzer $classReflectionAnalyzer,
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Change "isset()" property check, to assertObjectHasProperty() method', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition('Change "isset()" property check, to assertObjectHasProperty() method', [
+            new CodeSample(
+                <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 final class SomeTest extends TestCase
@@ -62,7 +52,9 @@ final class SomeTest extends TestCase
     }
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+
+                ,
+                <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 final class SomeTest extends TestCase
@@ -74,66 +66,88 @@ final class SomeTest extends TestCase
     }
 }
 CODE_SAMPLE
-)]);
+            ),
+        ]);
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [MethodCall::class, StaticCall::class];
     }
+
     /**
      * @param MethodCall|StaticCall $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
-        if (!$this->testsNodeAnalyzer->isPHPUnitMethodCallNames($node, [AssertMethod::ASSERT_TRUE, AssertMethod::ASSERT_FALSE])) {
+        if (! $this->testsNodeAnalyzer->isPHPUnitMethodCallNames(
+            $node,
+            [AssertMethod::ASSERT_TRUE, AssertMethod::ASSERT_FALSE]
+        )) {
             return null;
         }
+
         if ($node->isFirstClassCallable()) {
             return null;
         }
+
         $firstArg = $node->getArgs()[0];
         $firstArgValue = $firstArg->value;
-        if (!$firstArgValue instanceof Isset_) {
+        if (! $firstArgValue instanceof Isset_) {
             return null;
         }
+
         $issetExpr = $firstArgValue->vars[0];
-        if (!$issetExpr instanceof PropertyFetch) {
+        if (! $issetExpr instanceof PropertyFetch) {
             return null;
         }
+
         if ($this->hasMagicIsset($issetExpr->var)) {
             return null;
         }
+
         $name = $this->getName($issetExpr);
         if ($name === null) {
             return null;
         }
-        $this->identifierManipulator->renameNodeWithMap($node, [AssertMethod::ASSERT_TRUE => 'assertObjectHasProperty', AssertMethod::ASSERT_FALSE => 'assertObjectNotHasProperty']);
+
+        $this->identifierManipulator->renameNodeWithMap($node, [
+            AssertMethod::ASSERT_TRUE => 'assertObjectHasProperty',
+            AssertMethod::ASSERT_FALSE => 'assertObjectNotHasProperty',
+        ]);
+
         $oldArgs = $node->getArgs();
         unset($oldArgs[0]);
+
         $newArgs = $this->nodeFactory->createArgs([new String_($name), $issetExpr->var]);
-        $node->args = \array_merge($newArgs, $oldArgs);
+        $node->args = [...$newArgs, ...$oldArgs];
         return $node;
     }
-    private function hasMagicIsset(Expr $expr) : bool
+
+    private function hasMagicIsset(Expr $expr): bool
     {
         $type = $this->nodeTypeResolver->getType($expr);
-        if (!$type instanceof TypeWithClassName) {
+        if (! $type instanceof TypeWithClassName) {
             // object not found, skip
             return $type instanceof ObjectWithoutClassType;
         }
+
         $classReflection = $type->getClassReflection();
-        if (!$classReflection instanceof ClassReflection) {
-            return \false;
+        if (! $classReflection instanceof ClassReflection) {
+            return false;
         }
+
         if ($classReflection->hasMethod('__isset')) {
-            return \true;
+            return true;
         }
-        if (!$classReflection->isClass()) {
-            return \false;
+
+        if (! $classReflection->isClass()) {
+            return false;
         }
+
         return $this->classReflectionAnalyzer->resolveParentClassName($classReflection) !== null;
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\CodeQuality\Rector\MethodCall;
 
 use PhpParser\Node;
@@ -10,6 +11,7 @@ use Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer;
 use Rector\Rector\AbstractRector;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @changelog https://github.com/symfony/symfony/pull/29685/files
  *
@@ -17,18 +19,18 @@ use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
  */
 final class UseSpecificWithMethodRector extends AbstractRector
 {
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    public function __construct(TestsNodeAnalyzer $testsNodeAnalyzer)
-    {
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
+    public function __construct(
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Changes ->with() to more specific method', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition(
+            'Changes ->with() to more specific method',
+            [
+                new CodeSample(
+                    <<<'CODE_SAMPLE'
 class SomeClass extends PHPUnit\Framework\TestCase
 {
     public function test()
@@ -41,7 +43,8 @@ class SomeClass extends PHPUnit\Framework\TestCase
     }
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+                    ,
+                    <<<'CODE_SAMPLE'
 class SomeClass extends PHPUnit\Framework\TestCase
 {
     public function test()
@@ -54,40 +57,50 @@ class SomeClass extends PHPUnit\Framework\TestCase
     }
 }
 CODE_SAMPLE
-)]);
+                ),
+            ]
+        );
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [MethodCall::class, StaticCall::class];
     }
+
     /**
      * @param MethodCall|StaticCall $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
-        if (!$this->testsNodeAnalyzer->isInTestClass($node)) {
+        if (! $this->testsNodeAnalyzer->isInTestClass($node)) {
             return null;
         }
+
         // we cannot check caller types, as on old PHPUnit version, this the magic ->method() call result to a mixed type
-        if (!$this->isName($node->name, 'with')) {
+        if (! $this->isName($node->name, 'with')) {
             return null;
         }
+
         if ($node->isFirstClassCallable()) {
             return null;
         }
+
         foreach ($node->getArgs() as $i => $argNode) {
-            if (!$argNode->value instanceof MethodCall) {
+            if (! $argNode->value instanceof MethodCall) {
                 continue;
             }
+
             $methodCall = $argNode->value;
-            if (!$this->isName($methodCall->name, 'equalTo')) {
+            if (! $this->isName($methodCall->name, 'equalTo')) {
                 continue;
             }
+
             $node->args[$i] = $methodCall->getArgs()[0];
         }
+
         return $node;
     }
 }

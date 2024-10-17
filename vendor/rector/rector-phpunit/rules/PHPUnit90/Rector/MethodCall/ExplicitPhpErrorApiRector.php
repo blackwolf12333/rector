@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\PHPUnit90\Rector\MethodCall;
 
 use PhpParser\Node;
@@ -13,6 +14,7 @@ use Rector\PHPUnit\NodeFactory\AssertCallFactory;
 use Rector\Rector\AbstractRector;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @changelog https://github.com/sebastianbergmann/phpunit/blob/master/ChangeLog-9.0.md
  * @changelog https://github.com/sebastianbergmann/phpunit/commit/1ba2e3e1bb091acda3139f8a9259fa8161f3242d
@@ -22,27 +24,28 @@ use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
 final class ExplicitPhpErrorApiRector extends AbstractRector
 {
     /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeFactory\AssertCallFactory
-     */
-    private $assertCallFactory;
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    /**
      * @var array<string, string>
      */
-    private const REPLACEMENTS = ['PHPUnit\\Framework\\TestCase\\Notice' => 'expectNotice', 'PHPUnit\\Framework\\TestCase\\Deprecated' => 'expectDeprecation', 'PHPUnit\\Framework\\TestCase\\Error' => 'expectError', 'PHPUnit\\Framework\\TestCase\\Warning' => 'expectWarning'];
-    public function __construct(AssertCallFactory $assertCallFactory, TestsNodeAnalyzer $testsNodeAnalyzer)
-    {
-        $this->assertCallFactory = $assertCallFactory;
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
+    private const REPLACEMENTS = [
+        'PHPUnit\Framework\TestCase\Notice' => 'expectNotice',
+        'PHPUnit\Framework\TestCase\Deprecated' => 'expectDeprecation',
+        'PHPUnit\Framework\TestCase\Error' => 'expectError',
+        'PHPUnit\Framework\TestCase\Warning' => 'expectWarning',
+    ];
+
+    public function __construct(
+        private readonly AssertCallFactory $assertCallFactory,
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Use explicit API for expecting PHP errors, warnings, and notices', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition(
+            'Use explicit API for expecting PHP errors, warnings, and notices',
+            [
+                new CodeSample(
+                    <<<'CODE_SAMPLE'
 final class SomeTest extends \PHPUnit\Framework\TestCase
 {
     public function test()
@@ -54,7 +57,8 @@ final class SomeTest extends \PHPUnit\Framework\TestCase
     }
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+                    ,
+                    <<<'CODE_SAMPLE'
 final class SomeTest extends \PHPUnit\Framework\TestCase
 {
     public function test()
@@ -66,61 +70,73 @@ final class SomeTest extends \PHPUnit\Framework\TestCase
     }
 }
 CODE_SAMPLE
-)]);
+                ),
+            ]
+        );
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [MethodCall::class, StaticCall::class];
     }
+
     /**
      * @param MethodCall|StaticCall $node
-     * @return null|\PhpParser\Node\Expr\MethodCall|\PhpParser\Node\Expr\StaticCall
      */
-    public function refactor(Node $node)
+    public function refactor(Node $node): null|MethodCall|StaticCall
     {
-        if (!$this->testsNodeAnalyzer->isPHPUnitMethodCallNames($node, ['expectException'])) {
+        if (! $this->testsNodeAnalyzer->isPHPUnitMethodCallNames($node, ['expectException'])) {
             return null;
         }
+
         foreach (self::REPLACEMENTS as $class => $method) {
             $newNode = $this->replaceExceptionWith($node, $class, $method);
             if ($newNode instanceof Node) {
                 return $newNode;
             }
         }
+
         return null;
     }
-    /**
-     * @param \PhpParser\Node\Expr\MethodCall|\PhpParser\Node\Expr\StaticCall $node
-     * @return null|\PhpParser\Node\Expr\MethodCall|\PhpParser\Node\Expr\StaticCall
-     */
-    private function replaceExceptionWith($node, string $exceptionClass, string $explicitMethod)
-    {
+
+    private function replaceExceptionWith(
+        MethodCall|StaticCall $node,
+        string $exceptionClass,
+        string $explicitMethod
+    ): null|MethodCall|StaticCall {
         if ($node->isFirstClassCallable()) {
             return null;
         }
-        if (!isset($node->getArgs()[0])) {
+
+        if (! isset($node->getArgs()[0])) {
             return null;
         }
+
         $firstArg = $node->getArgs()[0];
-        if (!$this->isClassConstReference($firstArg->value, $exceptionClass)) {
+
+        if (! $this->isClassConstReference($firstArg->value, $exceptionClass)) {
             return null;
         }
+
         return $this->assertCallFactory->createCallWithName($node, $explicitMethod);
     }
+
     /**
      * Detects "SomeClass::class"
      */
-    private function isClassConstReference(Expr $expr, string $className) : bool
+    private function isClassConstReference(Expr $expr, string $className): bool
     {
-        if (!$expr instanceof ClassConstFetch) {
-            return \false;
+        if (! $expr instanceof ClassConstFetch) {
+            return false;
         }
-        if (!$this->isName($expr->name, 'class')) {
-            return \false;
+
+        if (! $this->isName($expr->name, 'class')) {
+            return false;
         }
+
         return $this->isName($expr->class, $className);
     }
 }

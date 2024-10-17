@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\CodeQuality\Rector\MethodCall;
 
 use PhpParser\Node;
@@ -12,35 +13,26 @@ use Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer;
 use Rector\Rector\AbstractRector;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @see \Rector\PHPUnit\Tests\CodeQuality\Rector\MethodCall\AssertSameTrueFalseToAssertTrueFalseRector\AssertSameTrueFalseToAssertTrueFalseRectorTest
  */
 final class AssertSameTrueFalseToAssertTrueFalseRector extends AbstractRector
 {
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\ArgumentMover
-     */
-    private $argumentMover;
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    /**
-     * @readonly
-     * @var \Rector\PhpParser\Node\Value\ValueResolver
-     */
-    private $valueResolver;
-    public function __construct(ArgumentMover $argumentMover, TestsNodeAnalyzer $testsNodeAnalyzer, ValueResolver $valueResolver)
-    {
-        $this->argumentMover = $argumentMover;
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
-        $this->valueResolver = $valueResolver;
+    public function __construct(
+        private readonly ArgumentMover $argumentMover,
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer,
+        private readonly ValueResolver $valueResolver
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Change $this->assertSame(true, ...) to assertTrue()', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition(
+            'Change $this->assertSame(true, ...) to assertTrue()',
+            [
+                new CodeSample(
+                    <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 final class SomeTest extends TestCase
@@ -52,7 +44,9 @@ final class SomeTest extends TestCase
     }
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+
+                    ,
+                    <<<'CODE_SAMPLE'
 use PHPUnit\Framework\TestCase;
 
 final class SomeTest extends TestCase
@@ -64,37 +58,52 @@ final class SomeTest extends TestCase
     }
 }
 CODE_SAMPLE
-)]);
+                ),
+            ]
+        );
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [MethodCall::class];
     }
+
     /**
      * @param MethodCall $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
-        if (!$this->testsNodeAnalyzer->isPHPUnitMethodCallNames($node, ['assertSame', 'assertEqual', 'assertNotSame', 'assertNotEqual'])) {
+        if (! $this->testsNodeAnalyzer->isPHPUnitMethodCallNames(
+            $node,
+            ['assertSame', 'assertEqual', 'assertNotSame', 'assertNotEqual']
+        )) {
             return null;
         }
+
         if ($node->isFirstClassCallable()) {
             return null;
         }
+
         $firstArg = $node->getArgs()[0];
+
         if ($this->valueResolver->isTrue($firstArg->value)) {
             $this->argumentMover->removeFirstArg($node);
+
             $node->name = new Identifier('assertTrue');
+
             return $node;
         }
+
         if ($this->valueResolver->isFalse($firstArg->value)) {
             $this->argumentMover->removeFirstArg($node);
+
             $node->name = new Identifier('assertFalse');
             return $node;
         }
+
         return null;
     }
 }

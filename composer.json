@@ -6,9 +6,17 @@
     "bin": [
         "bin/rector"
     ],
+    "repositories": [
+            {
+      "type": "vcs",
+      "url": "git@github.com:blackwolf12333/rector-phpunit.git",
+      "no-api": true
+    }
+    ],
     "require": {
         "php": "^7.2|^8.0",
-        "phpstan/phpstan": "^1.12.5"
+        "phpstan/phpstan": "^1.12.5",
+        "rector/rector-phpunit": "dev-main"
     },
     "autoload": {
         "files": [
@@ -16,7 +24,6 @@
         ]
     },
     "conflict": {
-        "rector/rector-phpunit": "*",
         "rector/rector-symfony": "*",
         "rector/rector-doctrine": "*",
         "rector/rector-downgrade-php": "*"

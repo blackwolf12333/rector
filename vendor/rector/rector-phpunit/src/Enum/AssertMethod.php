@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\Enum;
 
 final class AssertMethod
@@ -9,6 +10,7 @@ final class AssertMethod
      * @var string
      */
     public const ASSERT_FALSE = 'assertFalse';
+
     /**
      * @var string
      */

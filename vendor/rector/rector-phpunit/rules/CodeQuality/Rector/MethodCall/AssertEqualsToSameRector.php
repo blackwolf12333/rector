@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\CodeQuality\Rector\MethodCall;
 
 use PhpParser\Node;
@@ -18,25 +19,20 @@ use Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer;
 use Rector\Rector\AbstractRector;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @see \Rector\PHPUnit\Tests\CodeQuality\Rector\MethodCall\AssertEqualsToSameRector\AssertEqualsToSameRectorTest
  */
 final class AssertEqualsToSameRector extends AbstractRector
 {
     /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\IdentifierManipulator
-     */
-    private $identifierManipulator;
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    /**
      * @var array<string, string>
      */
-    private const RENAME_METHODS_MAP = ['assertEquals' => 'assertSame', 'assertNotEquals' => 'assertNotSame'];
+    private const RENAME_METHODS_MAP = [
+        'assertEquals' => 'assertSame',
+        'assertNotEquals' => 'assertNotSame',
+    ];
+
     /**
      * We exclude
      * - bool because this is taken care of AssertEqualsParameterToSpecificMethodsTypeRector
@@ -45,91 +41,117 @@ final class AssertEqualsToSameRector extends AbstractRector
      * @var array<class-string<Type>>
      */
     private const SCALAR_TYPES = [FloatType::class, IntegerType::class, StringType::class, ConstantArrayType::class];
-    public function __construct(IdentifierManipulator $identifierManipulator, TestsNodeAnalyzer $testsNodeAnalyzer)
-    {
-        $this->identifierManipulator = $identifierManipulator;
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
+
+    public function __construct(
+        private readonly IdentifierManipulator $identifierManipulator,
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Turns `assertEquals()` into stricter `assertSame()` for scalar values in PHPUnit TestCase', [new CodeSample('$this->assertEquals(2, $result);', '$this->assertSame(2, $result);')]);
+        return new RuleDefinition(
+            'Turns `assertEquals()` into stricter `assertSame()` for scalar values in PHPUnit TestCase',
+            [new CodeSample('$this->assertEquals(2, $result);', '$this->assertSame(2, $result);')]
+        );
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [MethodCall::class, StaticCall::class];
     }
+
     /**
      * @param MethodCall|StaticCall $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
-        if (!$this->testsNodeAnalyzer->isInTestClass($node)) {
+        if (! $this->testsNodeAnalyzer->isInTestClass($node)) {
             return null;
         }
-        $methodNames = \array_keys(self::RENAME_METHODS_MAP);
-        if (!$this->isNames($node->name, $methodNames)) {
+
+        $methodNames = array_keys(self::RENAME_METHODS_MAP);
+        if (! $this->isNames($node->name, $methodNames)) {
             return null;
         }
+
         if ($node->isFirstClassCallable()) {
             return null;
         }
+
         $args = $node->getArgs();
-        if (!isset($args[0])) {
+        if (! isset($args[0])) {
             return null;
         }
+
         $firstArgValue = $args[0]->value;
-        if (!$this->isScalarValue($firstArgValue)) {
+
+        if (! $this->isScalarValue($firstArgValue)) {
             return null;
         }
+
         if ($this->shouldSkipConstantArrayType($firstArgValue)) {
             return null;
         }
+
         $hasChanged = $this->identifierManipulator->renameNodeWithMap($node, self::RENAME_METHODS_MAP);
         return $hasChanged ? $node : null;
     }
-    private function shouldSkipConstantArrayType(Expr $expr) : bool
+
+    private function shouldSkipConstantArrayType(Expr $expr): bool
     {
         $type = $this->getType($expr);
-        if (!$type instanceof ConstantArrayType) {
-            return \false;
+
+        if (! $type instanceof ConstantArrayType) {
+            return false;
         }
+
         return $this->hasNonScalarType($type);
     }
-    private function hasNonScalarType(ConstantArrayType $constantArrayType) : bool
+
+    private function hasNonScalarType(ConstantArrayType $constantArrayType): bool
     {
         $valueTypes = $constantArrayType->getValueTypes();
+
         // empty array
         if ($valueTypes === []) {
-            return \false;
+            return false;
         }
+
         foreach ($valueTypes as $valueType) {
             if ($valueType instanceof ConstantArrayType && $this->hasNonScalarType($valueType)) {
-                return \true;
+                return true;
             }
+
             // non-scalar type can be an object or mixed, which should be skipped
-            if (!$this->isScalarType($valueType)) {
-                return \true;
+            if (! $this->isScalarType($valueType)) {
+                return true;
             }
         }
-        return \false;
+
+        return false;
     }
-    private function isScalarType(Type $valueNodeType) : bool
+
+    private function isScalarType(Type $valueNodeType): bool
     {
         foreach (self::SCALAR_TYPES as $scalarType) {
             if ($valueNodeType instanceof $scalarType) {
-                return \true;
+                return true;
             }
         }
-        return \false;
+
+        return false;
     }
-    private function isScalarValue(Expr $expr) : bool
+
+    private function isScalarValue(Expr $expr): bool
     {
         if ($expr instanceof Encapsed) {
-            return \true;
+            return true;
         }
+
         $valueNodeType = $this->nodeTypeResolver->getType($expr);
         return $this->isScalarType($valueNodeType);
     }

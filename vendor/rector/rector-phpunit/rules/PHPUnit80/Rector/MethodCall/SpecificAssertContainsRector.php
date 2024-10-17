@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\PHPUnit80\Rector\MethodCall;
 
 use PhpParser\Node;
@@ -14,6 +15,7 @@ use Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer;
 use Rector\Rector\AbstractRector;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @changelog https://github.com/sebastianbergmann/phpunit/blob/master/ChangeLog-8.0.md
  *
@@ -22,21 +24,25 @@ use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
 final class SpecificAssertContainsRector extends AbstractRector
 {
     /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    /**
      * @var array<string, string>
      */
-    private const OLD_TO_NEW_METHOD_NAMES = ['assertContains' => 'assertStringContainsString', 'assertNotContains' => 'assertStringNotContainsString'];
-    public function __construct(TestsNodeAnalyzer $testsNodeAnalyzer)
-    {
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
+    private const OLD_TO_NEW_METHOD_NAMES = [
+        'assertContains' => 'assertStringContainsString',
+        'assertNotContains' => 'assertStringNotContainsString',
+    ];
+
+    public function __construct(
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Change assertContains()/assertNotContains() method to new string and iterable alternatives', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition(
+            'Change assertContains()/assertNotContains() method to new string and iterable alternatives',
+            [
+                new CodeSample(
+                    <<<'CODE_SAMPLE'
 final class SomeTest extends \PHPUnit\Framework\TestCase
 {
     public function test()
@@ -46,7 +52,8 @@ final class SomeTest extends \PHPUnit\Framework\TestCase
     }
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+                    ,
+                    <<<'CODE_SAMPLE'
 final class SomeTest extends \PHPUnit\Framework\TestCase
 {
     public function test()
@@ -56,44 +63,55 @@ final class SomeTest extends \PHPUnit\Framework\TestCase
     }
 }
 CODE_SAMPLE
-)]);
+                ),
+            ]
+        );
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [MethodCall::class, StaticCall::class];
     }
+
     /**
      * @param MethodCall|StaticCall $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
-        if (!$this->testsNodeAnalyzer->isPHPUnitMethodCallNames($node, ['assertContains', 'assertNotContains'])) {
+        if (! $this->testsNodeAnalyzer->isPHPUnitMethodCallNames($node, ['assertContains', 'assertNotContains'])) {
             return null;
         }
+
         if ($node->isFirstClassCallable()) {
             return null;
         }
-        if (!$this->isPossiblyStringType($node->getArgs()[1]->value)) {
+
+        if (! $this->isPossiblyStringType($node->getArgs()[1]->value)) {
             return null;
         }
+
         $methodName = $this->getName($node->name);
         $newMethodName = self::OLD_TO_NEW_METHOD_NAMES[$methodName];
         $node->name = new Identifier($newMethodName);
+
         return $node;
     }
-    private function isPossiblyStringType(Expr $expr) : bool
+
+    private function isPossiblyStringType(Expr $expr): bool
     {
         $exprType = $this->getType($expr);
+
         if ($exprType instanceof UnionType) {
             foreach ($exprType->getTypes() as $unionedType) {
                 if ($unionedType instanceof StringType) {
-                    return \true;
+                    return true;
                 }
             }
         }
+
         return $exprType instanceof StringType;
     }
 }

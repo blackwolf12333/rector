@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace Rector\PHPUnit\PHPUnit60\Rector\ClassMethod;
 
 use PhpParser\Node;
@@ -14,6 +15,7 @@ use Rector\PHPUnit\NodeFactory\ExpectExceptionMethodCallFactory;
 use Rector\Rector\AbstractRector;
 use Symplify\RuleDocGenerator\ValueObject\CodeSample\CodeSample;
 use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
+
 /**
  * @changelog https://thephp.cc/news/2016/02/questioning-phpunit-best-practices
  * @changelog https://github.com/sebastianbergmann/phpunit/commit/17c09b33ac5d9cad1459ace0ae7b1f942d1e9afd
@@ -23,47 +25,33 @@ use Symplify\RuleDocGenerator\ValueObject\RuleDefinition;
 final class ExceptionAnnotationRector extends AbstractRector
 {
     /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeFactory\ExpectExceptionMethodCallFactory
-     */
-    private $expectExceptionMethodCallFactory;
-    /**
-     * @readonly
-     * @var \Rector\BetterPhpDocParser\PhpDocManipulator\PhpDocTagRemover
-     */
-    private $phpDocTagRemover;
-    /**
-     * @readonly
-     * @var \Rector\PHPUnit\NodeAnalyzer\TestsNodeAnalyzer
-     */
-    private $testsNodeAnalyzer;
-    /**
-     * @readonly
-     * @var \Rector\Comments\NodeDocBlock\DocBlockUpdater
-     */
-    private $docBlockUpdater;
-    /**
-     * @readonly
-     * @var \Rector\BetterPhpDocParser\PhpDocInfo\PhpDocInfoFactory
-     */
-    private $phpDocInfoFactory;
-    /**
      * In reversed order, which they should be called in code.
      *
      * @var array<string, string>
      */
-    private const ANNOTATION_TO_METHOD = ['expectedExceptionMessageRegExp' => 'expectExceptionMessageRegExp', 'expectedExceptionMessage' => 'expectExceptionMessage', 'expectedExceptionCode' => 'expectExceptionCode', 'expectedException' => 'expectException'];
-    public function __construct(ExpectExceptionMethodCallFactory $expectExceptionMethodCallFactory, PhpDocTagRemover $phpDocTagRemover, TestsNodeAnalyzer $testsNodeAnalyzer, DocBlockUpdater $docBlockUpdater, PhpDocInfoFactory $phpDocInfoFactory)
-    {
-        $this->expectExceptionMethodCallFactory = $expectExceptionMethodCallFactory;
-        $this->phpDocTagRemover = $phpDocTagRemover;
-        $this->testsNodeAnalyzer = $testsNodeAnalyzer;
-        $this->docBlockUpdater = $docBlockUpdater;
-        $this->phpDocInfoFactory = $phpDocInfoFactory;
+    private const ANNOTATION_TO_METHOD = [
+        'expectedExceptionMessageRegExp' => 'expectExceptionMessageRegExp',
+        'expectedExceptionMessage' => 'expectExceptionMessage',
+        'expectedExceptionCode' => 'expectExceptionCode',
+        'expectedException' => 'expectException',
+    ];
+
+    public function __construct(
+        private readonly ExpectExceptionMethodCallFactory $expectExceptionMethodCallFactory,
+        private readonly PhpDocTagRemover $phpDocTagRemover,
+        private readonly TestsNodeAnalyzer $testsNodeAnalyzer,
+        private readonly DocBlockUpdater $docBlockUpdater,
+        private readonly PhpDocInfoFactory $phpDocInfoFactory,
+    ) {
     }
-    public function getRuleDefinition() : RuleDefinition
+
+    public function getRuleDefinition(): RuleDefinition
     {
-        return new RuleDefinition('Changes `@expectedException annotations to `expectException*()` methods', [new CodeSample(<<<'CODE_SAMPLE'
+        return new RuleDefinition(
+            'Changes `@expectedException annotations to `expectException*()` methods',
+            [
+                new CodeSample(
+                    <<<'CODE_SAMPLE'
 /**
  * @expectedException Exception
  * @expectedExceptionMessage Message
@@ -73,7 +61,8 @@ public function test()
     // tested code
 }
 CODE_SAMPLE
-, <<<'CODE_SAMPLE'
+                    ,
+                    <<<'CODE_SAMPLE'
 public function test()
 {
     $this->expectException('Exception');
@@ -81,41 +70,56 @@ public function test()
     // tested code
 }
 CODE_SAMPLE
-)]);
+                ),
+            ]
+        );
     }
+
     /**
      * @return array<class-string<Node>>
      */
-    public function getNodeTypes() : array
+    public function getNodeTypes(): array
     {
         return [ClassMethod::class];
     }
+
     /**
      * @param ClassMethod $node
      */
-    public function refactor(Node $node) : ?Node
+    public function refactor(Node $node): ?Node
     {
-        if (!$this->testsNodeAnalyzer->isInTestClass($node)) {
+        if (! $this->testsNodeAnalyzer->isInTestClass($node)) {
             return null;
         }
+
         $phpDocInfo = $this->phpDocInfoFactory->createFromNode($node);
-        if (!$phpDocInfo instanceof PhpDocInfo) {
+        if (! $phpDocInfo instanceof PhpDocInfo) {
             return null;
         }
-        $hasChanged = \false;
+
+        $hasChanged = false;
+
         foreach (self::ANNOTATION_TO_METHOD as $annotationName => $methodName) {
-            if (!$phpDocInfo->hasByName($annotationName)) {
+            if (! $phpDocInfo->hasByName($annotationName)) {
                 continue;
             }
-            $methodCallExpressions = $this->expectExceptionMethodCallFactory->createFromTagValueNodes($phpDocInfo->getTagsByName($annotationName), $methodName);
-            $node->stmts = \array_merge($methodCallExpressions, (array) $node->stmts);
+
+            $methodCallExpressions = $this->expectExceptionMethodCallFactory->createFromTagValueNodes(
+                $phpDocInfo->getTagsByName($annotationName),
+                $methodName,
+            );
+            $node->stmts = [...$methodCallExpressions, ...(array) $node->stmts];
+
             $this->phpDocTagRemover->removeByName($phpDocInfo, $annotationName);
-            $hasChanged = \true;
+            $hasChanged = true;
         }
-        if (!$hasChanged) {
+
+        if (! $hasChanged) {
             return null;
         }
+
         $this->docBlockUpdater->updateRefactoredNodeWithPhpDocInfo($node);
+
         return $node;
     }
 }
